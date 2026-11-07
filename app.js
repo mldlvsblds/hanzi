@@ -15,7 +15,8 @@ const D = window.DRILLS;
 
 const store = {
   get(k, d) { try { const v = localStorage.getItem('hz.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem('hz.' + k, JSON.stringify(v)); } catch (e) { } },
+  set(k, v) { try { localStorage.setItem('hz.' + k, JSON.stringify(v)); } catch (e) { } if (!store.silent && typeof onLocalChange === 'function') onLocalChange(k); },
+  silent: false,
 };
 
 // ---------- pinyin ----------
@@ -129,6 +130,10 @@ function buildWords(base) {
   state.words = lessons.flatMap(l => l.words);
   const saved = store.get('sel', null);
   state.sel = new Set(saved ? saved.filter(k => lessons.some(l => l.key === k)) : lessons.map(l => l.key));
+  // lessons that appear for the first time (new class lesson, synced words) start selected
+  const seen = new Set(store.get('seenLessons', []));
+  lessons.forEach(l => { if (!seen.has(l.key)) { if (saved) state.sel.add(l.key); seen.add(l.key); } });
+  store.silent = true; store.set('seenLessons', [...seen]); if (saved) store.set('sel', [...state.sel]); store.silent = false;
   if (!state.sel.size) state.sel = new Set(lessons.map(l => l.key));
 }
 let baseLessons = [];
@@ -138,15 +143,16 @@ const lessonLabel = k => /^\d+$/.test(k) ? 'L' + k : k;
 
 // ---------- SRS (flashcards) ----------
 const DAY = 864e5, INTERVALS = [0, 10 * 6e4, DAY, 3 * DAY, 7 * DAY, 21 * DAY, 60 * DAY];
-let srs = store.get('srs', {});
+var srs = store.get('srs', {});
 function grade(id, g) {
   const c = srs[id] || { b: 0 };
   c.b = g === 0 ? 0 : Math.min(6, c.b + g);
+  c.t = Date.now();
   c.due = Date.now() + (g === 0 ? 60e3 : INTERVALS[c.b]);
   srs[id] = c; store.set('srs', srs);
 }
 const known = w => (srs[w.id]?.b || 0) >= 2;
-let charStats = store.get('charStats', {}); // char -> {n, miss}
+var charStats = store.get('charStats', {}); // char -> {n, miss}
 function noteChar(c, mistakes) { const s = charStats[c] || { n: 0, miss: 0 }; s.n++; s.miss += mistakes; charStats[c] = s; store.set('charStats', charStats); }
 
 // ---------- routing ----------
@@ -775,6 +781,189 @@ function toast(msg) {
   document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
 }
 
+// ---------- account & cloud sync (Firebase) ----------
+// Progress is always saved on the device first. When signed in, it is also mirrored to
+// Firestore at users/{uid} and merged with what other devices uploaded.
+const FB_VERSION = '10.12.2';
+const SYNC_KEYS = new Set(['srs', 'charStats', 'custom', 'history']);
+const cloud = { ready: false, user: undefined, auth: null, db: null, unsub: null, timer: null, lastSync: 0, first: true };
+function onLocalChange(k) {
+  if (k === 'custom') { store.silent = true; store.set('customT', Date.now()); store.silent = false; }
+  if (SYNC_KEYS.has(k)) schedulePush();
+}
+const loadScript = src => new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = fail; document.head.appendChild(s); });
+async function initCloud() {
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg || !cfg.apiKey) return;
+  const base = `https://www.gstatic.com/firebasejs/${FB_VERSION}/`;
+  try {
+    await loadScript(base + 'firebase-app-compat.js');
+    await Promise.all([loadScript(base + 'firebase-auth-compat.js'), loadScript(base + 'firebase-firestore-compat.js')]);
+  } catch (e) { cloud.failed = true; updateAccountBtn(); return; }
+  firebase.initializeApp(cfg);
+  cloud.auth = firebase.auth(); cloud.db = firebase.firestore();
+  try { await cloud.db.enablePersistence({ synchronizeTabs: true }); } catch (e) { }
+  cloud.ready = true;
+  cloud.auth.onAuthStateChanged(u => {
+    const firstCall = cloud.user === undefined;
+    cloud.user = u || null;
+    if (cloud.unsub) { cloud.unsub(); cloud.unsub = null; }
+    if (u) startSync(u);
+    updateAccountBtn();
+    const r = location.hash.split('/')[1];
+    if (u && r === 'login') go('#/home');
+    else if (!u && firstCall && !store.get('skipLogin', false) && r !== 'login') go('#/login');
+    else if (r === 'account' || r === 'login') render();
+  });
+}
+const stableStr = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, key) => (o[key] = x[key], o), {}) : x);
+function localData() {
+  return { srs, charStats, custom: customWords(), customT: store.get('customT', 0), history: store.get('history', []) };
+}
+function mergeCloud(c) {
+  const s = { ...srs };
+  for (const [id, v] of Object.entries(c.srs || {})) {
+    const l = s[id];
+    if (!l || (v.t || 0) > (l.t || 0) || ((v.t || 0) === (l.t || 0) && (v.b || 0) > (l.b || 0))) s[id] = v;
+  }
+  const cs = { ...charStats };
+  for (const [ch, v] of Object.entries(c.charStats || {})) if (!cs[ch] || v.n > cs[ch].n) cs[ch] = v;
+  let custom = customWords(), customT = store.get('customT', 0);
+  const cc = c.custom || [];
+  if (cloud.first) { // first sync on this device: keep words from both sides
+    const key = w => w.h + '|' + w.p;
+    const have = new Set(custom.map(key)); custom = [...custom, ...cc.filter(w => !have.has(key(w)))];
+    customT = Math.max(customT, c.customT || 0);
+  } else if ((c.customT || 0) > customT) { custom = cc; customT = c.customT; }
+  const hist = [...store.get('history', []), ...(c.history || [])].filter((h, i, a) => a.findIndex(x => x.t === h.t) === i).sort((a, b) => a.t - b.t).slice(-50);
+  const before = stableStr(localData());
+  srs = s; charStats = cs;
+  store.silent = true;
+  store.set('srs', srs); store.set('charStats', charStats); store.set('custom', custom); store.set('customT', customT); store.set('history', hist);
+  store.silent = false;
+  return before !== stableStr(localData());
+}
+function startSync(u) {
+  cloud.first = true;
+  const ref = cloud.db.collection('users').doc(u.uid);
+  cloud.unsub = ref.onSnapshot(snap => {
+    const c = snap.exists ? snap.data() : {};
+    const changed = mergeCloud(c);
+    const cloudStr = stableStr({ srs: c.srs || {}, charStats: c.charStats || {}, custom: c.custom || [], customT: c.customT || 0, history: c.history || [] });
+    if (cloudStr !== stableStr(localData())) schedulePush(cloud.first ? 0 : 1500);
+    cloud.first = false;
+    if (!snap.metadata.hasPendingWrites) cloud.lastSync = Date.now();
+    if (changed) refreshAfterSync();
+    updateAccountBtn();
+  }, err => { console.warn('sync', err); cloud.error = err.code; updateAccountBtn(); });
+}
+function schedulePush(delay = 1500) {
+  if (!cloud.user || !cloud.db) return;
+  clearTimeout(cloud.timer);
+  cloud.timer = setTimeout(pushNow, delay);
+}
+function pushNow() {
+  if (!cloud.user) return Promise.resolve();
+  const d = localData();
+  return cloud.db.collection('users').doc(cloud.user.uid).set({ ...d, updated: firebase.firestore.FieldValue.serverTimestamp() })
+    .then(() => { cloud.lastSync = Date.now(); cloud.error = null; updateAccountBtn(); })
+    .catch(e => { cloud.error = e.code; updateAccountBtn(); });
+}
+function refreshAfterSync() {
+  buildWords(baseLessons);
+  // don't interrupt a running card session, quiz or writing exercise
+  if (!$('#card') && !$('#qbody') && !$('#wbox') && !$('.sheet-wrap') && !$('#addf')) render();
+}
+function updateAccountBtn() {
+  const b = $('#acctBtn'); if (!b) return;
+  if (!window.FIREBASE_CONFIG || !window.FIREBASE_CONFIG.apiKey) { b.hidden = true; return; }
+  b.hidden = false;
+  const u = cloud.user;
+  b.innerHTML = u ? `<span class="avatar">${esc((u.displayName || u.email || '?')[0].toUpperCase())}</span>` : 'Sign in';
+  b.classList.toggle('signed', !!u);
+  b.title = u ? `Signed in as ${u.email || u.displayName}` : 'Sign in to save progress online';
+}
+const AUTH_ERRORS = {
+  'auth/invalid-email': 'That email address doesn\'t look right.',
+  'auth/missing-password': 'Please enter a password.',
+  'auth/weak-password': 'Please use a password with at least 6 characters.',
+  'auth/email-already-in-use': 'There is already an account with this email — sign in instead.',
+  'auth/invalid-credential': 'Wrong email or password.', 'auth/wrong-password': 'Wrong email or password.', 'auth/user-not-found': 'No account with this email yet — create one.',
+  'auth/too-many-requests': 'Too many attempts. Please wait a minute and try again.',
+  'auth/network-request-failed': 'No internet connection.',
+  'auth/popup-closed-by-user': 'The Google window was closed before signing in.',
+  'auth/unauthorized-domain': 'This website address isn\'t allowed to sign in yet.',
+};
+const authMsg = e => AUTH_ERRORS[e.code] || e.message || 'Something went wrong.';
+routes.login = () => {
+  if (!cloud.ready) {
+    view().innerHTML = window.FIREBASE_CONFIG?.apiKey && !cloud.failed ? `<p class="muted pad">Loading…</p>`
+      : `<h1>Account</h1><p class="muted">Online sync isn't available right now${cloud.failed ? ' (no internet connection)' : ''}. Your progress is saved on this device.</p><a class="btn" href="#/home">Back</a>`;
+    return;
+  }
+  if (cloud.user) return routes.account();
+  let mode = 'signin';
+  const draw = () => {
+    view().innerHTML = `<div class="login">
+      <div class="logo big">汉</div>
+      <h1>汉字 Practice</h1>
+      <p class="muted">Sign in to save your progress online and continue on any device.</p>
+      <button class="btn google wide" id="gBtn"><svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg> Continue with Google</button>
+      <div class="or"><span>or with email</span></div>
+      <form id="ef" class="form">
+        <label>Email<input type="email" name="email" autocomplete="email" required></label>
+        <label>Password<input type="password" name="pw" autocomplete="${mode === 'signup' ? 'new-password' : 'current-password'}" minlength="6" required></label>
+        <p class="err" id="err" role="alert"></p>
+        <button class="btn primary wide" type="submit">${mode === 'signup' ? 'Create account' : 'Sign in'}</button>
+      </form>
+      <p class="small center">${mode === 'signup' ? 'Already have an account? <a href="#" id="toggle">Sign in</a>' : 'New here? <a href="#" id="toggle">Create an account</a>'} · <a href="#" id="forgot">Forgot password?</a></p>
+      <button class="btn ghost wide" id="skip">Continue without account</button>
+      <p class="muted small center">Without an account your progress stays on this device only.</p>
+    </div>`;
+    const err = m => { $('#err').textContent = m; };
+    $('#toggle').onclick = e => { e.preventDefault(); mode = mode === 'signin' ? 'signup' : 'signin'; draw(); };
+    $('#skip').onclick = () => { store.set('skipLogin', true); go('#/home'); };
+    $('#forgot').onclick = async e => {
+      e.preventDefault(); const em = $('#ef').email.value.trim();
+      if (!em) return err('Type your email above first, then tap “Forgot password?” again.');
+      try { await cloud.auth.sendPasswordResetEmail(em); err(''); toast('Password reset email sent'); } catch (x) { err(authMsg(x)); }
+    };
+    $('#gBtn').onclick = async () => {
+      err('');
+      const p = new firebase.auth.GoogleAuthProvider();
+      try { await cloud.auth.signInWithPopup(p); }
+      catch (x) {
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(x.code)) {
+          try { await cloud.auth.signInWithRedirect(p); } catch (y) { err(authMsg(y)); }
+        } else err(authMsg(x) + (x.code === 'auth/popup-closed-by-user' ? '' : ' You can also sign in with email.'));
+      }
+    };
+    $('#ef').onsubmit = async e => {
+      e.preventDefault(); err('');
+      const f = e.target, em = f.email.value.trim(), pw = f.pw.value;
+      const btn = f.querySelector('button[type=submit]'); btn.disabled = true;
+      try {
+        if (mode === 'signup') await cloud.auth.createUserWithEmailAndPassword(em, pw);
+        else await cloud.auth.signInWithEmailAndPassword(em, pw);
+        toast('Signed in — your progress now syncs');
+      } catch (x) { err(authMsg(x)); btn.disabled = false; }
+    };
+  };
+  draw();
+};
+routes.account = () => {
+  if (!cloud.ready || !cloud.user) return routes.login();
+  const u = cloud.user;
+  const when = cloud.lastSync ? new Date(cloud.lastSync).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  view().innerHTML = `<h1>Account</h1>
+  <div class="hero"><p class="eyebrow">Signed in</p><p class="big-m acct">${esc(u.email || u.displayName || '')}</p>
+  <p class="muted small">${cloud.error ? `⚠️ Sync problem (${esc(cloud.error)}). Your progress is still saved on this device.` : `✅ Progress syncs automatically · last synced ${when}`}</p></div>
+  <div class="row"><button class="btn" id="syncNow">↻ Sync now</button><button class="btn bad" id="out">Sign out</button></div>
+  <p class="muted small">Signing out keeps your progress on this device. Sign in on another device with the same account to continue there.</p>`;
+  $('#syncNow').onclick = async () => { await pushNow(); toast(cloud.error ? 'Sync failed — will retry later' : 'Synced'); routes.account(); };
+  $('#out').onclick = async () => { await pushNow(); await cloud.auth.signOut(); store.set('skipLogin', true); toast('Signed out'); go('#/home'); };
+};
+
 // ---------- boot ----------
 async function boot() {
   let txt = '';
@@ -789,6 +978,8 @@ async function boot() {
     history.replaceState(null, '', location.pathname + '#/words');
   }
   render();
+  updateAccountBtn();
+  initCloud();
 }
 boot();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => { });

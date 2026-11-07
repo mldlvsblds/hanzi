@@ -13,7 +13,12 @@ A small study app for HSK 1 (HSK标准教程1). It covers lessons 1–9 so far. 
 - **Just for you:** go to Words → ＋ Add in the app. These words are saved on your device. You can send them to friends with **Share my words**.
 - To add exam-style practice sentences, edit `data/drills.js`.
 
+## Accounts & sync
+- Logging in is optional. Use Google or email + password, or tap "Continue without account".
+- When you're signed in, your flashcard progress, writing stats, own words and quiz history sync between your devices through Firebase (project `hanzi-practice-b01bd`, data stored in Taiwan).
+- Each person can only read and write their own data (`firestore.rules`). Without an account, everything stays on the device.
+- Firebase is a Google service, so logging in and syncing need a VPN in mainland China. The rest of the app works without it.
+
 ## Notes
-- Progress is saved in the browser on each device. Nothing is uploaded.
 - Stroke data comes from [Hanzi Writer](https://hanziwriter.org) (MIT). It loads online once and is cached for offline use.
 - Pronunciation uses the device's built-in Chinese voice. On iPhone/iPad you can add a Chinese voice under Settings → Accessibility → Spoken Content → Voices.

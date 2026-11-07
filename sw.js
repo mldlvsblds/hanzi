@@ -1,7 +1,7 @@
 // Offline support: app files are network-first (so updates show up right away),
 // stroke data and the Hanzi Writer library from the CDN are cache-first.
-const CACHE = 'hanzi-v1';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'data/drills.js', 'data/words.txt', 'manifest.json', 'icons/icon-192.png',
+const CACHE = 'hanzi-v2';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'firebase-config.js', 'data/drills.js', 'data/words.txt', 'manifest.json', 'icons/icon-192.png',
   'https://cdn.jsdelivr.net/npm/hanzi-writer@3.5.0/dist/hanzi-writer.min.js'];
 
 self.addEventListener('install', e => {
@@ -14,7 +14,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.hostname === 'cdn.jsdelivr.net') {
+  if (url.hostname === 'cdn.jsdelivr.net' || (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/'))) {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
       return res;
