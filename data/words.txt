@@ -1,0 +1,136 @@
+// =====================================================================
+//  CLASS VOCABULARY — edit this file to add new words for everyone.
+//
+//  How it works:
+//   • A line starting with  #  starts a new lesson:   # 10 | 我能坐这儿吗 Can I sit here
+//   • Every other line is one word:                   hanzi | pinyin | meaning
+//   • Lines starting with // are comments and are ignored.
+//   • Pinyin can use tone marks (nǐ hǎo) or numbers (ni3 hao3).
+//
+//  Source: HSK标准教程1 (HSK Standard Course 1), lessons 1–9.
+// =====================================================================
+
+# 1 | 你好 Hello
+你 | nǐ | you (singular)
+好 | hǎo | good, fine
+您 | nín | you (polite)
+你们 | nǐmen | you (plural)
+对不起 | duìbuqǐ | sorry
+没关系 | méi guānxi | that's OK, it doesn't matter
+
+# 2 | 谢谢你 Thank you
+谢谢 | xièxie | to thank; thanks
+不 | bù | no, not
+不客气 | bú kèqi | you're welcome
+再见 | zàijiàn | goodbye, see you
+
+# 3 | 你叫什么名字 What's your name
+叫 | jiào | to call, to be called
+什么 | shénme | what
+名字 | míngzi | name
+我 | wǒ | I, me
+是 | shì | to be (am / is / are)
+老师 | lǎoshī | teacher
+吗 | ma | question particle (yes/no questions)
+学生 | xuésheng | student
+人 | rén | person, people
+中国 | Zhōngguó | China
+美国 | Měiguó | the USA
+中国人 | Zhōngguórén | Chinese person
+李月 | Lǐ Yuè | Li Yue (a name)
+
+# 4 | 她是我的汉语老师 She is my Chinese teacher
+她 | tā | she, her
+谁 | shéi | who, whom
+的 | de | particle ('s, of — shows possession)
+汉语 | Hànyǔ | Chinese (language)
+哪 | nǎ | which
+国 | guó | country
+呢 | ne | question particle (and you? / what about…?)
+他 | tā | he, him
+同学 | tóngxué | classmate
+朋友 | péngyou | friend
+
+# 5 | 她女儿今年二十岁 Her daughter is 20 this year
+家 | jiā | family, home
+有 | yǒu | to have; there is
+口 | kǒu | measure word for family members
+女儿 | nǚ'ér | daughter
+几 | jǐ | how many (small numbers)
+岁 | suì | year(s) of age
+了 | le | particle: shows a change
+今年 | jīnnián | this year
+多 | duō | how (多大 = how old)
+大 | dà | old (of age); big
+一 | yī | one
+二 | èr | two
+三 | sān | three
+四 | sì | four
+五 | wǔ | five
+六 | liù | six
+七 | qī | seven
+八 | bā | eight
+九 | jiǔ | nine
+十 | shí | ten
+
+# 6 | 我会说汉语 I can speak Chinese
+会 | huì | can, to be able to (a learned skill)
+说 | shuō | to speak, to say
+妈妈 | māma | mother
+菜 | cài | dish, cuisine
+中国菜 | Zhōngguó cài | Chinese food
+很 | hěn | very
+好吃 | hǎochī | delicious, tasty
+做 | zuò | to make, to cook, to do
+写 | xiě | to write
+汉字 | Hànzì | Chinese character
+字 | zì | character, word
+怎么 | zěnme | how
+读 | dú | to read
+
+# 7 | 今天几号 What's the date today
+请 | qǐng | please
+问 | wèn | to ask
+今天 | jīntiān | today
+号 | hào | date (day of the month)
+月 | yuè | month
+星期 | xīngqī | week
+昨天 | zuótiān | yesterday
+明天 | míngtiān | tomorrow
+去 | qù | to go
+学校 | xuéxiào | school
+看 | kàn | to look at, to watch, to read
+书 | shū | book
+
+# 8 | 我想喝茶 I'd like some tea
+想 | xiǎng | would like to, to want
+喝 | hē | to drink
+茶 | chá | tea
+吃 | chī | to eat
+米饭 | mǐfàn | cooked rice
+下午 | xiàwǔ | afternoon
+商店 | shāngdiàn | shop, store
+买 | mǎi | to buy
+个 | gè | general measure word
+杯子 | bēizi | cup, glass
+这 | zhè | this
+多少 | duōshao | how many, how much
+钱 | qián | money
+块 | kuài | kuai (unit of money, = yuan)
+那 | nà | that
+
+# 9 | 你儿子在哪儿工作 Where does your son work
+小 | xiǎo | small, little
+猫 | māo | cat
+在 | zài | to be in/at; in, at
+那儿 | nàr | there
+狗 | gǒu | dog
+椅子 | yǐzi | chair
+下面 | xiàmiàn | under, below
+下 | xià | under, below
+哪儿 | nǎr | where
+工作 | gōngzuò | to work; job
+儿子 | érzi | son
+医院 | yīyuàn | hospital
+医生 | yīshēng | doctor
+爸爸 | bàba | father

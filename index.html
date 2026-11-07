@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>汉字 Practice</title>
+  <meta name="description" content="Practice writing hanzi and HSK 1 vocabulary for class.">
+  <meta name="theme-color" content="#c8102e">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="汉字">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top"><a href="#/home" class="brand"><span class="logo">汉</span> 汉字 Practice</a></header>
+  <main id="view" tabindex="-1"><p class="muted pad">Loading…</p></main>
+  <nav class="nav" aria-label="Main">
+    <a href="#/home" data-r="home"><span>🏠</span>Home</a>
+    <a href="#/cards" data-r="cards"><span>🃏</span>Cards</a>
+    <a href="#/write" data-r="write"><span>✍️</span>Write</a>
+    <a href="#/quiz" data-r="quiz"><span>🎯</span>Drills</a>
+    <a href="#/words" data-r="words"><span>📚</span>Words</a>
+  </nav>
+  <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5.0/dist/hanzi-writer.min.js"></script>
+  <script src="data/drills.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
