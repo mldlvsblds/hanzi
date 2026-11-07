@@ -45,8 +45,25 @@ function withTone(syl, t) { return markSyl(stripTone(syl), t); }
 let zhVoice = null;
 function loadVoices() { try { const vs = speechSynthesis.getVoices(); zhVoice = vs.find(v => /zh[-_]CN/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null; } catch (e) { } }
 if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
-function speak(text) {
+function ttsSpeak(text) {
   try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'zh-CN'; if (zhVoice) u.voice = zhVoice; u.rate = 0.8; speechSynthesis.speak(u); } catch (e) { }
+}
+// Recorded audio (audio/<fnv-hash>.m4a, made by tools/make_audio.py) is preferred;
+// the device voice is only used for texts without a recording (e.g. your own words).
+let audioIndex = null;
+fetch('audio/index.json').then(r => r.ok ? r.json() : null).then(j => { if (j) audioIndex = new Set(j.files); }).catch(() => { });
+const fnv = s => { let h = 0x811c9dc5; for (const b of new TextEncoder().encode(s)) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, '0'); };
+const player = typeof Audio !== 'undefined' ? new Audio() : null; // one element, so iOS keeps allowing playback
+function speak(text) {
+  text = String(text).trim();
+  const k = fnv(text);
+  if (player && audioIndex && audioIndex.has(k)) {
+    try { speechSynthesis.cancel(); } catch (e) { }
+    player.pause(); player.src = 'audio/' + k + '.m4a';
+    player.play().catch(() => ttsSpeak(text));
+    return;
+  }
+  ttsSpeak(text);
 }
 const audioBtn = text => `<button class="icon-btn say" data-say="${esc(text)}" aria-label="Play pronunciation">🔊</button>`;
 document.addEventListener('click', e => { const b = e.target.closest('[data-say]'); if (b) { e.stopPropagation(); speak(b.dataset.say); } });

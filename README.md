@@ -21,4 +21,4 @@ A small study app for HSK 1 (HSK标准教程1). It covers lessons 1–9 so far. 
 
 ## Notes
 - Stroke data comes from [Hanzi Writer](https://hanziwriter.org) (MIT). It loads online once and is cached for offline use.
-- Pronunciation uses the device's built-in Chinese voice. On iPhone/iPad you can add a Chinese voice under Settings → Accessibility → Spoken Content → Voices.
+- Pronunciation uses recorded audio in `audio/` (Apple's "Lili (Premium)" voice, slightly slowed down), so it sounds the same on every device and works offline. After adding words to `words.txt`, run `python3 -I tools/make_audio.py` on a Mac to record them. Words without a recording fall back to the device's own voice.
